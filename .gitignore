@@ -1,0 +1,7 @@
+*.pyc
+__pycache__/*
+*.png
+*.jpg
+/data/
+/.venv/
+/connections.json

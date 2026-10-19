@@ -1,0 +1,31 @@
+---
+description: This describes the dashboard and its functioning
+alwaysApply: false
+---
+# Dashboard
+
+## Overview
+The dashboard is the main window of the application.
+It will contain the following Sections on the page:
+    - topbar (frozen): 
+      - left: Live Inputs
+      - right: Live Outputs
+    - content (scrollable vertically):
+      - row 1 : 
+        - left: camera stream 1 - with annotation of the detection result
+        - right: professionaly formatted detection results for the camera stream 1
+      - row 2 : 
+        - left: camera stream 2 - with annotation of the detection result
+        - right: professionaly formatted detection results for the camera stream 2
+      
+
+## Design Considerations
+- The dashboard will be designed to be responsive and to work on all screen sizes.
+- Professional minimal rounded corners will be used for the UI.
+- smooth animations
+- professional colors
+- professional fonts
+- professional icons
+- professional layout and spacing.
+- colors - light theme with grayish navy blue Accent. (keep it adjustable)
+- 

@@ -1,0 +1,29 @@
+---
+alwaysApply: false
+---
+# Guide for next steps
+
+## Edits
+
+- Hide the connections list in connection manager. Show multiple previuosly connected devices.
+- remove mock data from the application.
+- make the detection profiles the same as like workflows
+  - left panel for listing, right panel for editing
+  - add the template making tool here rather than in the cameras page, give a dropdown to select the camera.
+  - add a button to apply the perspective transform
+- Use the cnode_manager_sdk to interact with the cnode_manager
+  - get data from the cnode_manager, current workflows and detection profiles etc. Then display in the application.
+
+- Add a page under configure to test the inputs and outputs of the device by overriding. The override works using rabbitmq messages as commands sent to cnode_handler.
+  - The commands are:
+    - Commands:
+      - io.set_override | cmd_set_override('value',)  - json > {"command": "io.set_override", "args": ["value"]}
+      - io.set_input | cmd_set_input('name', 'value')  - json > {"command": "io.set_input", "args": ["name", "value"]}
+      - io.set_output | cmd_set_output('name', 'value')  - json > {"command": "io.set_output", "args": ["name", "value"]}
+      - workflow.set | set_workflow('name',)  - json > {"command": "workflow.set", "args": ["name"]}
+      - workflow.run | wrapper('args', 'kwargs')  - json > {"command": "workflow.run"}
+      - workflow.stop | wrapper('args', 'kwargs')  - json > {"command": "workflow.stop"}
+      - workflow.pause | wrapper('args', 'kwargs')  - json > {"command": "workflow.pause"}
+      - calibration.read_wf_config | read_wf_config()  - json > {"command": "calibration.read_wf_config"}
+      - calibration.initialize | initialize()  - json > {"command": "calibration.initialize"}
+      - calibration.set_camera_profile | set_camera_profile('camera_id', 'profile_name')  - json > {"command": "calibration.set_camera_profile", "args": ["camera_id", "profile_name"]}

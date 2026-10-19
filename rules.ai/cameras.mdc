@@ -1,0 +1,21 @@
+---
+description: This is the description for the camera config page
+alwaysApply: false
+---
+# Cameras
+
+## Overview
+This page will contain the following sections:
+    - left panel: will contain the list of cameras
+      - camera name
+    - right panel: will contain the details of the camera
+      - current live feed
+      - resize options
+      - mirror options
+      - flip options
+      - perspective transform tools
+        - a popup will open to select the 4 points of the perspective transform
+        - the points will be displayed on the camera feed as clicked.
+        - a button to apply the perspective transform will be displayed
+        - a button to reset the perspective transform will be displayed
+        - a button to save the perspective transform will be displayed

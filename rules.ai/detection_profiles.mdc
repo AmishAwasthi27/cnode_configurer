@@ -1,0 +1,20 @@
+---
+description: This describes the configuration page for detection profiles
+alwaysApply: false
+---
+# Detection Profiles
+
+## Overview
+The detection profiles are the profiles that are used to detect the objects in the camera streams.
+
+### Architecture
+This page will contain the following sections:
+    - topbar (frozen): 
+      - left: Detection Profiles
+      - right: Add Detection Profile
+    - content (scrollable vertically):
+      - row 1 : 
+        - left: Detection Profile 1
+        - right: Detection Profile 2
+      - row 2 : 
+        - left: Detection Profile 3

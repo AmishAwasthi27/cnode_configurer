@@ -1,0 +1,40 @@
+---
+alwaysApply: false
+---
+
+
+# Edits
+
+- Categorize the pages cameras and I/O under Device topic
+- Rename the page I/O test to Control
+
+## Workflows
+-I have made a change in the naming of workflows, the name is user defined and the type is the workflow type like calibration, simple_detect, etc.
+
+- So as per my design, when the maintenance mode is enabled, the workflow type should be calibration and the name should be the name of the workflow under the field calibration_workflow in calibration workflow.
+- to switch to maintenance mode, the user should click on the maintenance mode button and the workflow on cnode_handler should be set to calibration using the commands:
+  - workflow.stop -> workflow.set calibration -> workflow.run
+- when the user switches back to production mode, the workflow on cnode_handler should be set to the workflow type and name, by chosing from a popup showing list of workflows to choose from. Then later run the workflow using the commands:
+  - workflow.stop -> workflow.set <workflow type> -> workflow.run
+- when running commands, wait for 1 sec to ensure the command is executed.
+- In the edit settings form , show the selection of inputs and outputs(Relays) as buttons like in I/O test page. but in a row.
+- In the cameras Row, renmae the field Profile to Detection profile. Move the edit perspective button to the right of the detection profile dropdown.
+
+## Detection Profiles
+- Move the workflow selection dropdown to the left panel above the profiles list.
+- show the template capture in the settings form above the templates field.
+- The template field should give a small thumbnail preview of the captured image and have only the name of the template as text. Do not add the file extension.
+
+## Dashboard
+
+- the camera streams displayed should be both direct from camera and detection stream. In the current design just split the camera row in two columns, one for the direct from camera and one for the detection stream.
+
+- The detection results are very boring. Rename the title to "Detection". Add tags for showing what templates are used for the detection. For example, if the detection is done using profile_1 with template_1.png and profile_2 with template_2.png, then the tags should be "template_1, template_2".
+- Add the profile name also as another field
+- Add the confidence score also as another field, make it more enhanced than others and show it as a percentage too.
+
+## Cameras page
+
+- give provision to delete the camera
+- 
+

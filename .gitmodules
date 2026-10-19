@@ -1,0 +1,3 @@
+[submodule "cnode_manager_sdk"]
+	path = cnode_manager_sdk
+	url = https://lab.stabledynamics.in/projectsextern/industrial/cnode_manager_sdk.git

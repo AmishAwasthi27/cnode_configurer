@@ -1,0 +1,22 @@
+---
+description: This describes the workflows page and its management
+alwaysApply: false
+---
+
+# Workflows
+
+## Overview
+This page will contain the following sections:
+    - topbar (frozen): 
+      - left: Workflow Name
+      - right: Add Workflow
+    - content (scrollable vertically):
+      - left panel: will contain the list of workflows
+      - right panel: will contain the details of the workflow
+        The workflow will be displayed in a flowchart form with the control flow of the workflow:
+        - 1. trigger - configures the trigger input of the workflow
+        - 2. detection - configures the detection of the workflow
+          - 2.1 detection profiles - configures the detection profiles of the workflow
+        - 4. relay outputs - configures the relay outputs of the workflow
+        
+        

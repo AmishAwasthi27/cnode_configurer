@@ -1,0 +1,20 @@
+---
+description: This takes care of the update service for the device as well as this software
+alwaysApply: false
+---
+
+# Updates
+
+## Overview
+This page will contain the following sections:
+    - topbar (frozen): 
+      - left: Updates
+      - right: Check for Updates
+    - content (scrollable vertically):
+      - row 1 : 
+        - Device Update - Update the device firmware
+      - row 2 : 
+        - Software Update - Update the software application
+
+## Code considerations
+- The update manager wiill update from DAKPAL, this is a cli package manager system that will be used to update the device firmware and the software application. Currently in the making and will be available soon.

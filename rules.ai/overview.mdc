@@ -1,0 +1,62 @@
+---
+alwaysApply: true
+---
+# CNODE Configurer
+
+## Overview
+This project is to configure the cnode hardware and software.
+This is a PySide6 application that will help the user configure the cnode hardware and software.
+
+### Architecture
+The application will be composed of the following parts:
+- Main Window
+- Menu Bar - Menu bar with the following items:
+  - Connection - Connect to the cnode_handler
+  - Settings - Settings for the application
+  - Help - Help for the application
+  - About - About the application
+- Topbar (Top of the page):
+  - left most: Logo of the application
+  - second left: Connection button - shows the connection status
+    - on click, a popup will show the connection status
+    - if not connected, a popup will ask for the connection
+  - right: 
+    - button: switch between maintenance mode and production mode
+    - Notification button - shows the number of notifications
+      - on click, a popup will show the notifications
+    - right most button: Account button - shows the account information
+      - on click, a popup will show the account information
+      - if not logged in, a popup will ask for the login credentials
+  - Middle: Current Mode (Maintenance or Production)
+  - Color - Changes as per the mode (default accent for production mode and yellow for maintenance mode)
+- Sidebar: will contain the following tabs:
+  - Dashboard (more in dashboard.mdc)
+  - Configure (this will drop down) (only available in Maintenance mode) (Configure the workflows, detection profiles, cameras, etc.)
+    - Workflows - Workflows for the cnode module (more in workflows.mdc)
+    - Detection Profiles - Detection profiles for the cnode module (more in detection_profiles.mdc)
+    - Cameras - Resizing, mirroring, flipping, etc. (more in cameras.mdc)
+  - Updates - Updates for the application (more in updates.mdc)
+
+## Code convetions
+- we will connect to the cnode device using hostname : cnode1.local:xxxx where xxxx is the port number of the relevant service 
+- Ports and services onboard:
+  - 8060: Camera Streamer
+  - 8061: Detection Streamer
+  - 9001: Supervisor
+  - 5672: RabbitMQ
+  - 22: SSH
+  - 8000: cnode_manager - this is a s django erver to store data related to the cnode device, will make it eventually, so do make likely calls for endpoints of that service.
+  - save the connections in a file called connections.json for the connection manager to use.
+
+## Code Structure
+- Make proper classes for each module
+- keep certain objects accessible for all modules like Connection
+- Make managers like ConnectionManager, NotificationManager, AccountManager, etc.
+- When needed use threads, timers, queues, etc. eg: camera streamers, status streamers, etc.
+- Use proper logging and error handling
+- Use proper UI design and styling
+    
+## Considerations
+This is a standalone application that will run on the user's machine connected to another compute via ethernet where cnode_handler will be running.
+
+Most of the configs will be saved to the cnode_manager server, the db api will then put the files in their respective places and store a state of change in the db. This applies to workflows.json, cnode_handler.json, detection templates etc.

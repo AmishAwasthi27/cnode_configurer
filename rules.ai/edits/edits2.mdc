@@ -1,0 +1,14 @@
+---
+alwaysApply: false
+---
+
+# Edits
+
+- Connections: 
+  - do not enforce connection with ssh in the connection manager, we will manage it later differently.
+  - do not enforce connection with supervisor in the connection manager, we will manage it later differently.
+  - When connecting, make the request to first get the current cnode_handler configuration. This will tell how many cameras are configured and the current workflow. This can also be achived using the cameras endpoint to get all cameras
+    - load camera cards accordingly, a camera -2 card is already created, remove it, make it generative. make so for all pages.
+  - show the logs of making requests in the terminal
+  - make a button to refresh the pages and make the necessary calls on load.
+  - 
