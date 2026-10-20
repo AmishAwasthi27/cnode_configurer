@@ -60,6 +60,16 @@ class ManagerClient(QObject):
 
     # -------------------------------------------------------------- impl
     def _refresh(self, *_args) -> None:
+        # Local laptop mode uses LocalManager as its backend. Do not create an
+        # SDK client for localhost:8000, which would make pages mistake an
+        # absent local API service for a connected remote manager.
+        if self._conn.local_cnode:
+            if self._client is not None:
+                log.info("cnode_manager SDK disabled while using local cnode mode")
+                self._client = None
+                self._base_url = None
+                self.availability_changed.emit(False)
+            return
         if not _HAS_SDK:
             return
         if not self._conn.connected or self._conn.active_device is None:

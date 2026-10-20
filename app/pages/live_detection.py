@@ -146,7 +146,10 @@ class _InferenceWorker(QObject):
                 {category.casefold() for category in local_manager.template_categories(profile.id)}
                 if profile is not None else set()
             )
-            category_filter = expected_categories or self.categories
+            # Only filter by categories inferred from this profile's templates.
+            # An empty set means no category filter; the legacy UI default
+            # ("bottle") must not hide other model proposals such as bananas.
+            category_filter = expected_categories or None
             if category_filter:
                 detections = [item for item in detections if item.category.casefold() in category_filter]
             resolved = []

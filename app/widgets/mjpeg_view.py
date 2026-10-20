@@ -8,13 +8,14 @@ from __future__ import annotations
 
 import logging
 import socket
+import threading
 import time
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from typing import Optional
 
-from PySide6.QtCore import QObject, QThread, Qt, Signal
+from PySide6.QtCore import QObject, QThread, QTimer, Qt, Signal, Slot
 from PySide6.QtGui import QImage, QPixmap
 from PySide6.QtWidgets import QLabel, QSizePolicy, QVBoxLayout, QWidget
 
@@ -160,6 +161,16 @@ class MJPEGView(QWidget):
         self._worker: Optional[_StreamWorker] = None
         self._source: Optional[StreamSource] = None
         self._current_image: Optional[QImage] = None
+        # Keep only the newest decoded frame. Queuing every camera frame to the
+        # GUI can build a stale backlog while widgets or inference are busy.
+        self._pending_lock = threading.Lock()
+        self._pending_image: Optional[QImage] = None
+        self._pending_sequence = 0
+        self._displayed_sequence = 0
+        self._present_timer = QTimer(self)
+        self._present_timer.setInterval(33)
+        self._present_timer.timeout.connect(self._present_latest_frame)
+        self._present_timer.start()
 
     def current_image(self) -> Optional[QImage]:
         return QImage(self._current_image) if self._current_image is not None else None
@@ -188,6 +199,10 @@ class MJPEGView(QWidget):
         # Source really changed — drop the retained frame so we don't show a
         # stale image from the previous source.
         self._current_image = None
+        with self._pending_lock:
+            self._pending_image = None
+            self._pending_sequence = 0
+            self._displayed_sequence = 0
         self._label.setPixmap(QPixmap())
         self._label.setText("No stream")
         self._source = source
@@ -201,9 +216,17 @@ class MJPEGView(QWidget):
         self._worker = _StreamWorker(self._source)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.run)
-        self._worker.frame_ready.connect(self._on_frame)
+        # This slot only writes a thread-safe mailbox; all widget work remains
+        # on the GUI thread in _present_latest_frame().
+        self._worker.frame_ready.connect(
+            self._store_latest_frame, Qt.ConnectionType.DirectConnection
+        )
         self._worker.connected.connect(self.connected.emit)
-        self._worker.stopped.connect(self._thread.quit)
+        # QThread.quit() is thread-safe. A direct connection avoids queuing the
+        # quit request to the GUI thread while that thread is waiting in stop().
+        self._worker.stopped.connect(
+            self._thread.quit, Qt.ConnectionType.DirectConnection
+        )
         self._thread.finished.connect(self._thread.deleteLater)
         self._thread.start()
         self._label.setText(f"Connecting to {self._source.url}…")
@@ -224,9 +247,21 @@ class MJPEGView(QWidget):
             self._label.setPixmap(QPixmap())
             self._label.setText("No stream")
 
-    def _on_frame(self, image: QImage) -> None:
-        self._current_image = image
-        self.frame_received.emit(image)
+    @Slot(QImage)
+    def _store_latest_frame(self, image: QImage) -> None:
+        with self._pending_lock:
+            self._pending_image = image
+            self._pending_sequence += 1
+
+    @Slot()
+    def _present_latest_frame(self) -> None:
+        with self._pending_lock:
+            if self._pending_image is None or self._pending_sequence == self._displayed_sequence:
+                return
+            image = self._pending_image
+            self._displayed_sequence = self._pending_sequence
+        self._current_image = QImage(image)
+        self.frame_received.emit(self._current_image)
         self._repaint()
 
     def resizeEvent(self, event) -> None:  # noqa: D401, N802

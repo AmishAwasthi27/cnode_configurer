@@ -99,6 +99,7 @@ class ConnectionManager(QObject):
         self._active_host: Optional[str] = None
         self._statuses: Dict[str, str] = {name: "unknown" for name in PROBED_SERVICES}
         self._connected = False
+        self._local_cnode = False
         self._probe_running = False
         self.load()
 
@@ -127,6 +128,17 @@ class ConnectionManager(QObject):
     @property
     def connected(self) -> bool:
         return self._connected
+
+    @property
+    def local_cnode(self) -> bool:
+        """Whether this application is currently using the laptop as its cnode."""
+        return self._local_cnode
+
+    def set_local_cnode(self, enabled: bool) -> None:
+        if self._local_cnode == bool(enabled):
+            return
+        self._local_cnode = bool(enabled)
+        self.connection_changed.emit(self.config)
 
     def devices(self) -> List[Device]:
         return list(self._devices)
@@ -202,6 +214,12 @@ class ConnectionManager(QObject):
         active = self.active_device
         if active is None:
             raise RuntimeError("No device selected to connect to.")
+
+        # Keep backend selection consistent for explicit user connections too:
+        # loopback means this laptop is the cnode; any other host is remote.
+        self._local_cnode = active.host.strip().lower() in {
+            "localhost", "127.0.0.1", "::1", "this-device",
+        }
 
         active.last_connected_at = datetime.now(timezone.utc).isoformat(
             timespec="seconds"

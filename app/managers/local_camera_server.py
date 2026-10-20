@@ -149,7 +149,6 @@ class LocalCameraServer:
     def _capture_loop(self) -> None:
         while not self._stop_event.is_set():
             capture = None
-            stalled = False
             try:
                 with self._frame_lock:
                     config = dict(self._camera_config)
@@ -162,27 +161,18 @@ class LocalCameraServer:
                 if not capture.isOpened():
                     log.warning("Could not open local camera source %s", source)
                 else:
+                    log.info("Opened local camera source %s", source)
                     # Keep the driver's queue shallow so reads return recent
                     # webcam frames instead of draining an old buffered frame
                     # sequence after the UI or detector falls behind.
                     capture.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                     capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(config.get("frame_width", 1280)))
                     capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(config.get("frame_height", 720)))
-                    previous_frame = None
-                    unchanged_since = time.monotonic()
                     while not self._stop_event.is_set() and not self._reconfigure_event.is_set():
                         ok, image = capture.read()
                         if not ok:
+                            log.warning("Local camera source %s stopped returning frames; reopening it", source)
                             break
-                        if isinstance(source, int):
-                            if previous_frame is not None and cv2.norm(image, previous_frame, cv2.NORM_INF) == 0:
-                                if time.monotonic() - unchanged_since >= 2.0:
-                                    log.warning("Local camera source %s stopped producing new frames; reopening it", source)
-                                    stalled = True
-                                    break
-                            else:
-                                previous_frame = image.copy()
-                                unchanged_since = time.monotonic()
                         if config.get("mirror_h"):
                             image = cv2.flip(image, 1)
                         if config.get("mirror_v"):
@@ -210,4 +200,4 @@ class LocalCameraServer:
                 self._reconfigure_event.clear()
                 continue
             if not self._stop_event.is_set():
-                self._stop_event.wait(0.2 if stalled else 2)
+                self._stop_event.wait(2)

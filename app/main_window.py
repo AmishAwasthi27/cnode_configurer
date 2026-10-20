@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QObject, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
     QDialog,
@@ -32,8 +32,23 @@ from app.managers import (
     status_manager,
 )
 from app.managers.local_manager import local_manager
+from app.managers.cnode_resolver import resolve_cnode
 
 log = logging.getLogger("MainWindow")
+
+
+class _StartupCNodeResolver(QObject):
+    """Resolve a configured remote endpoint off the GUI thread."""
+
+    resolved = Signal(object)
+
+    def __init__(self, settings: dict) -> None:
+        super().__init__()
+        self.settings = settings
+
+    @Slot()
+    def run(self) -> None:
+        self.resolved.emit(resolve_cnode(self.settings))
 
 try:
     from cnode_manager_sdk import CNodeManagerError
@@ -66,6 +81,11 @@ from app.widgets.topbar import TopBar
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
+        # Local laptop mode is the immediately usable startup state. A remote
+        # cnode is selected only after its manager endpoint responds.
+        self._cnode_mode = "local"
+        self._cnode_host = "this-device"
+        self._startup_resolver_thread: Optional[QThread] = None
         self.setWindowTitle(APP_NAME)
         self.resize(1400, 900)
         self._local_camera_server = local_camera_server.LocalCameraServer()
@@ -148,10 +168,15 @@ class MainWindow(QMainWindow):
         connection_manager.connected_changed.connect(self._on_connected_changed)
         connection_manager.connection_changed.connect(self._on_connection_target_changed)
 
+        # Start the laptop camera/local backend immediately. Probe the saved
+        # remote endpoint asynchronously; a failure leaves local mode active.
+        self._activate_local_cnode()
+        QTimer.singleShot(0, self._resolve_startup_cnode)
+
         notification_manager.add(
             "Welcome",
-            "Not connected yet. Click the connection chip (top bar) to set a host and "
-            "connect to your cnode device.",
+            "Running with this laptop as the local cnode. A reachable configured "
+            "remote cnode will be selected automatically.",
             level="info",
         )
 
@@ -338,9 +363,58 @@ class MainWindow(QMainWindow):
 
     def _ensure_local_cnode(self) -> None:
         """Activate the laptop camera endpoint for offline manager mode."""
+        self._activate_local_cnode()
+
+    def _activate_local_cnode(self) -> None:
+        self._cnode_mode = "local"
+        self._cnode_host = "this-device"
+        status_manager.stop()
+        connection_manager.set_local_cnode(True)
         if not connection_manager.connected or connection_manager.config.host.strip().lower() not in {"localhost", "127.0.0.1", "::1"}:
             connection_manager.connect("localhost")
         self._local_camera_server.start()
+        self._update_status_bar(connection_manager.statuses)
+
+    def _resolve_startup_cnode(self) -> None:
+        device = connection_manager.config
+        settings = {"host": device.host, "manager_port": device.manager_port}
+        thread = QThread(self)
+        worker = _StartupCNodeResolver(settings)
+        worker.moveToThread(thread)
+        thread.started.connect(worker.run)
+        worker.resolved.connect(self._on_startup_cnode_resolved)
+        worker.resolved.connect(thread.quit)
+        thread.finished.connect(worker.deleteLater)
+        thread.finished.connect(thread.deleteLater)
+        self._startup_resolver_thread = thread
+        thread.finished.connect(lambda: setattr(self, "_startup_resolver_thread", None))
+        thread.start()
+
+    @Slot(object)
+    def _on_startup_cnode_resolved(self, result: object) -> None:
+        if not isinstance(result, dict) or result.get("mode") != "remote":
+            # The local cnode was already activated before the non-blocking
+            # probe, so an absent or unreachable remote needs no prompt.
+            self._update_status_bar(connection_manager.statuses)
+            return
+        # Do not override an explicit connection change made while probing.
+        if connection_manager.config.host.strip().lower() not in {"localhost", "127.0.0.1", "::1"}:
+            return
+        remote_host = str(result.get("host") or "").strip()
+        remote_url = str(result.get("url") or "")
+        if not remote_host:
+            return
+        from urllib.parse import urlparse
+        parsed = urlparse(remote_url)
+        remote_port = parsed.port or connection_manager.config.manager_port
+        connection_manager.set_local_cnode(False)
+        connection_manager.add_device(remote_host, manager_port=remote_port)
+        connection_manager.connect(remote_host)
+        self._local_camera_server.stop()
+        status_manager.start()
+        self._cnode_mode = "remote"
+        self._cnode_host = remote_host
+        self._update_status_bar(connection_manager.statuses)
 
     def _on_mode_changed(self, mode: str) -> None:
         if mode == MODE_MAINTENANCE:
@@ -351,25 +425,30 @@ class MainWindow(QMainWindow):
             )
 
     def _update_status_bar(self, statuses: dict) -> None:
+        if self._cnode_mode == "local":
+            camera_state = "camera server running" if self._local_camera_server.running else "camera server unavailable"
+            self._status.showMessage(f"Running as cnode: this device   |   {camera_state}")
+            return
         host = connection_manager.config.host
         if not connection_manager.connected:
-            self._status.showMessage(f"Host: {host}   |   Not connected")
+            self._status.showMessage(f"Running as cnode: {self._cnode_host}   |   Connecting…")
             return
         ok = [s for s, st in statuses.items() if st == "ok"]
         total = len(statuses) or 1
         label = self.topbar.device_display_name
         head = f"{label}  ·  {host}" if label != host else host
         self._status.showMessage(
-            f"{head}   |   Services online: {len(ok)}/{total}"
+            f"Running as cnode: {self._cnode_host}   |   {head}   |   Services online: {len(ok)}/{total}"
         )
 
     def _on_connected_changed(self, is_connected: bool) -> None:
         if is_connected:
-            if connection_manager.config.host.strip().lower() in {
+            if connection_manager.local_cnode or connection_manager.config.host.strip().lower() in {
                 "localhost", "127.0.0.1", "::1"
             }:
                 self._local_camera_server.start()
-            status_manager.start()
+            if not connection_manager.local_cnode:
+                status_manager.start()
             notification_manager.add(
                 "Connected",
                 f"Connected to {connection_manager.config.host}.",
@@ -386,9 +465,14 @@ class MainWindow(QMainWindow):
         self._update_status_bar(connection_manager.statuses)
 
     def _on_connection_target_changed(self, config) -> None:
-        """Keep the laptop camera stream available when switching to local mode."""
-        if config.host.strip().lower() in {"localhost", "127.0.0.1", "::1"}:
+        """Keep the correct camera/status services active for the selected cnode."""
+        is_loopback = config.host.strip().lower() in {"localhost", "127.0.0.1", "::1"}
+        if connection_manager.local_cnode or is_loopback:
             self._local_camera_server.start()
+        else:
+            self._local_camera_server.stop()
+            if connection_manager.connected:
+                status_manager.start()
 
     # ------------------------------------------------------------- Popups
     def _update_connection_menu_dev_actions(self) -> None:
@@ -424,6 +508,9 @@ class MainWindow(QMainWindow):
         connection_manager.disconnect()
         self._local_camera_server.stop()
         status_manager.stop()
+        if self._startup_resolver_thread is not None:
+            self._startup_resolver_thread.quit()
+            self._startup_resolver_thread.wait(1000)
         live_detection = self._pages.get("live_detection")
         shutdown = getattr(live_detection, "shutdown", None)
         if callable(shutdown):
